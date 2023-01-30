@@ -1,44 +1,57 @@
 pipeline {
-	agent none
-
-	triggers {
-		pollSCM 'H/10 * * * *'
+	agent any
+	environment {
+	PROJECT_ID = 'calm-seeker-375715'
+        CLUSTER_NAME = 'cluster-1'
+        LOCATION = 'us-central1-c'
+        CREDENTIALS_ID = 'My First Project'
+		
+	def git_branch = 'master'
+	def git_url = 'https://github.com/rishikant4/devops.git'
+	
+	def mvntest = 'mvn test '
+	def mvnpackage = 'mvn clean install'
+	
+	def utest_url = 'target/surefire-reports/**/*.xml'
+		
+	def sonar_cred = 'sonar'
+        def code_analysis = 'mvn clean install sonar:sonar'
+	def dcoker_cred='docker'
+		
+	def nex_cred = 'nexus'
+        def grp_ID = 'com.example'
+        def nex_url = '15.207.222.241:8081'
+        def nex_ver = 'nexus3'
+        def proto = 'http'
 	}
-
-	options {
-		disableConcurrentBuilds()
-		buildDiscarder(logRotator(numToKeepStr: '14'))
-	}
-
 	stages {
-		stage("test: baseline (jdk17)") {
-			agent {
-				docker {
-					image 'harbor-repo.vmware.com/dockerhub-proxy-cache/library/adoptopenjdk/openjdk17:latest'
-					args '-v $HOME/.m2:/tmp/jenkins-home/.m2'
-				}
-			}
-			options { timeout(time: 30, unit: 'MINUTES') }
-			steps {
-				sh 'test/run.sh'
-			}
-		}
-
+	stage('Github Checkout') {
+	steps {
+	script {
+	git branch: "${git_branch}", url: "${git_url}"
+	echo 'Git Checkout Completed'
 	}
-
+	}
+	} 
+	stage('Maven Build') {
+	steps {
+	sh "${env.mvnpackage}"
+	echo 'Maven Build Completed'
+	}
+	}
+	stage('Unit Test & Reports Publishing') {
+            steps {
+                script {
+                    sh "${env.mvntest}"
+                    echo 'Unit Testing Completed'
+                }
+            }
 	post {
-		changed {
-			script {
-				slackSend(
-						color: (currentBuild.currentResult == 'SUCCESS') ? 'good' : 'danger',
-						channel: '#sagan-content',
-						message: "${currentBuild.fullDisplayName} - `${currentBuild.currentResult}`\n${env.BUILD_URL}")
-				emailext(
-						subject: "[${currentBuild.fullDisplayName}] ${currentBuild.currentResult}",
-						mimeType: 'text/html',
-						recipientProviders: [[$class: 'CulpritsRecipientProvider'], [$class: 'RequesterRecipientProvider']],
-						body: "<a href=\"${env.BUILD_URL}\">${currentBuild.fullDisplayName} is reported as ${currentBuild.currentResult}</a>")
-			}
-		}
+                success {
+                        junit "$utest_url"
+                        jacoco()
+                }
+            }
+}
 	}
 }
