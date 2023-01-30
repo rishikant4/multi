@@ -6,7 +6,7 @@ pipeline {
         LOCATION = 'us-central1-c'
         CREDENTIALS_ID = 'My First Project'
 		
-	def git_branch = 'master'
+	def git_branch = 'main'
 	def git_url = 'https://github.com/rishikant4/devops.git'
 	
 	def mvntest = 'mvn test '
